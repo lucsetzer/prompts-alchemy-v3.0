@@ -104,7 +104,55 @@ def layout(title: str, content: str) -> str:
             background: var(--primary);
             color: white;
         }}
-    </style>
+
+        
+    :root {{
+        --primary: #8b5cf6;
+        --primary-hover: #7c3aed;
+    }}
+    
+    /* ... existing CSS ... */
+    
+        /* RESULT BOX FIXES */
+    .result-box {{
+        background: #f8fafc !important;
+        border: 2px solid #e5e7eb !important;
+        border-left: 4px solid var(--primary) !important;
+        border-radius: 0.5rem !important;
+        padding: 1.5rem !important;
+        margin: 1rem 0 !important;
+        white-space: pre-wrap !important;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        text-align: left !important;
+        color: #1f2937 !important;
+        overflow-x: auto;
+    }}
+    
+    .result-box strong {{
+        color: var(--primary);
+        font-weight: bold;
+    }}
+    
+    /* Make sure the enhanced prompt box has good contrast */
+    .enhanced-prompt {{
+        background: #f0f9ff;
+        border: 2px solid var(--primary);
+        border-radius: 0.75rem;
+    }}
+
+    /* SIMPLE ALIGNMENT FIX */
+    .result-box, .result-box * {{
+        text-align: left !important;
+        text-align-last: left !important;
+    }}
+
+    /* Force left alignment in all containers */
+    main .container .result-box {{
+        text-align: left !important;
+    }}
+</style>
 </head>
 <body style="background: white;">
 <nav style="padding: 1rem 0; border-bottom: 1px solid #e5e7eb;">
@@ -615,6 +663,7 @@ async def process_prompt(
     return HTMLResponse(layout("Processing...", loading_content))
 
 # ========== RESULT ==========
+# ========== RESULT ==========
 @app.get("/result")
 async def show_result(
     goal: str = Query(...),
@@ -624,104 +673,163 @@ async def show_result(
     tone: str = Query(...),
     prompt: str = Query(...)
 ):
-    # FIXED SYSTEM PROMPT - Returns enhanced prompt, NOT answer
-    system_prompt = f"""You are a prompt engineering expert. Your job is to IMPROVE user prompts, not answer them.
-
-The user wants help creating a better prompt for an AI. Here's their context:
-- Goal: {goal}
-- Audience: {audience}
-- Platform: {platform}
-- Style: {style}
-- Tone: {tone}
-
-The user provided this initial prompt: "{prompt}"
-
-IMPORTANT: DO NOT answer the user's question. DO NOT provide the actual information they're asking for.
-
-INSTEAD, write an IMPROVED, MORE EFFECTIVE version of their prompt that will get better results from {platform}.
-
-Make sure the improved prompt:
-1. Is tailored for {audience} audience
-2. Uses {tone} tone
-3. Follows {style} style
-4. Achieves the {goal} goal effectively
-
-Output ONLY the improved prompt text, nothing else. No explanations, no notes."""
-
+    # TEST MODE - Set to False for real API
+    TEST_MODE = False
+    TURQUOISE = "#0d96c1"
+    TURQUOISE_LIGHT = "#ecfeff"
+    TURQUOISE_DARK = "#0c4a6e"
+    
     try:
-        response = requests.post(
-            "https://api.deepseek.com/chat/completions",
-            headers={
-                "Authorization": f"Bearer {DEEPSEEK_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                "stream": False
-            },
-            timeout=45  # Longer timeout for slow responses
-        )
-        
-        if response.status_code == 200:
-            ai_text = response.json()["choices"][0]["message"]["content"]
-            
-            result_content = f'''
-            <div style="max-width: 800px; margin: 0 auto;">
-                <div style="text-align: center; margin-bottom: 2rem;">
-                    <div style="font-size: 3rem; color: #10b981;">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <h1 style="color: var(--primary);">Prompt Enhanced!</h1>
-                </div>
-                
-                <div style="background: #f9fafb; padding: 1.5rem; border-radius: 0.75rem; margin: 2rem 0;">
-                    <h3><i class="fas fa-pencil-alt"></i> Your Original Prompt:</h3>
-                    <div style="background: white; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; border-left: 4px solid #e5e7eb;">
-                        {prompt}
-                    </div>
-                </div>
-                
-                <div style="background: #f0f9ff; padding: 1.5rem; border-radius: 0.75rem; border: 2px solid var(--primary);">
-                    <h3><i class="fas fa-star" style="color: var(--primary);"></i> Enhanced Version:</h3>
-                    <div style="background: white; padding: 1.5rem; border-radius: 0.5rem; margin: 1rem 0; white-space: pre-wrap; font-family: monospace; line-height: 1.6;">
-                        {ai_text}
-                    </div>
-                    <p style="text-align: center; color: #6b7280; margin-top: 1rem;">
-                        <i class="fas fa-mouse-pointer"></i> Select text and copy (Ctrl+C / Cmd+C)
-                    </p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 3rem;">
-                    <a href="/wizard" role="button" style="margin-right: 1rem;">
-                        <i class="fas fa-hat-wizard"></i> Create Another
-                    </a>
-                    <a href="/" role="button" class="secondary">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                </div>
-            </div>
-            '''
+        if TEST_MODE:
+            # Mock enhanced prompt
+            ai_text = f'''As a prompt engineering expert specializing in {platform}, craft a detailed prompt that achieves the goal of "{goal}" for an audience of "{audience}". 
+
+Use a {tone} tone and {style} style. Structure the prompt to include:
+1. Clear context about the desired outcome
+2. Specific instructions tailored to {platform}'s capabilities
+3. Guidance on format, length, and key elements to include
+4. Considerations for engaging the target audience effectively
+
+Ensure the enhanced prompt is actionable, well-structured, and optimized for the best possible results from {platform}.'''
         else:
-            result_content = f'''
-            <div style="max-width: 800px; margin: 0 auto; text-align: center;">
-                <h1 style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> API Error</h1>
-                <p>DeepSeek returned status {response.status_code}</p>
-                <a href="/wizard/step6?goal={goal}&audience={audience}&platform={platform}&style={style}&tone={tone}" 
-                   role="button" style="margin-top: 2rem;">Try Again</a>
+                        # Real API call with BETTER prompt
+            system_prompt = f"""You are an elite prompt engineer. Transform this basic prompt into a highly effective, specific prompt for {platform}.
+
+USER'S CONTEXT:
+- Goal: {goal}
+- Target audience: {audience}
+- Desired style: {style}
+- Desired tone: {tone}
+- Original prompt: "{prompt}"
+
+YOUR TASK: Create a SINGLE, IMPROVED prompt that:
+1. Is optimized specifically for {platform}
+2. Will resonate with {audience}
+3. Achieves the "{goal}" goal effectively
+4. Uses {tone} tone throughout
+5. Is structured in a {style} way
+6. Includes specific, actionable instructions
+7. Sets clear expectations for output format
+
+DO NOT include explanations, notes, or markdown. Output ONLY the enhanced prompt text."""
+            
+            response = requests.post(
+                "https://api.deepseek.com/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {DEEPSEEK_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "stream": False
+                },
+                timeout=45
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"API Error {response.status_code}")
+            
+            ai_text = response.json()["choices"][0]["message"]["content"]
+        
+        # Build beautiful result page
+        result_content = f'''
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="font-size: 3rem; color: {TURQUOISE};">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <h1 style="color: {TURQUOISE};">Prompt Enhanced!</h1>
+        <p style="color: #64748b;">For <strong>{platform.title()}</strong> • <strong>{audience.title()}</strong> • <strong>{tone.title()}</strong> tone</p>
+    </div>
+    
+    <!-- Original Prompt Card -->
+    <div style="background: white; border-radius: 12px; padding: 1.5rem; margin: 2rem 0; border: 2px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+            <div style="background: #94a3b8; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                <i class="fas fa-pencil-alt"></i>
             </div>
-            '''
+            <h3 style="margin: 0; color: #64748b;">Original Prompt</h3>
+        </div>
+        
+        <div style="font-size: 1rem; line-height: 1.5; padding: 1rem; background: #f8fafc; border-radius: 8px; border-left: 4px solid #94a3b8; color: #475569;">
+            {prompt}
+        </div>
+    </div>
+    
+    <!-- Enhanced Prompt Card -->
+    <div style="background: white; border-radius: 12px; padding: 1.5rem; margin: 2rem 0; border: 2px solid {TURQUOISE}; box-shadow: 0 4px 12px rgba(13, 150, 193, 0.1);">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+            <div style="background: {TURQUOISE}; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                <i class="fas fa-star"></i>
+            </div>
+            <h3 style="margin: 0; color: {TURQUOISE};">Enhanced Prompt</h3>
+            <span style="font-size: 0.8rem; background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px; margin-left: auto;">
+                <i class="fas fa-mouse-pointer"></i> Click to select
+            </span>
+        </div>
+        
+        <div style="user-select: all; -webkit-user-select: all; -moz-user-select: all;
+                    font-size: 1.1rem; line-height: 1.5; padding: 1.5rem; background: {TURQUOISE_LIGHT}; 
+                    border-radius: 8px; border-left: 4px solid {TURQUOISE}; color: {TURQUOISE_DARK}; 
+                    font-family: 'Georgia', serif; white-space: pre-wrap; cursor: text;">
+            {ai_text}
+        </div>
+        
+        <div style="font-size: 0.8rem; color: #6b7280; margin-top: 1rem; text-align: center; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+            <i class="fas fa-clipboard"></i> Select text above, then Ctrl+C / Cmd+C to copy
+        </div>
+    </div>
+    
+    <!-- Context Info -->
+    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; margin: 2rem 0; border: 2px dashed {TURQUOISE};">
+        <h3 style="color: {TURQUOISE}; margin-bottom: 1rem; text-align: center;">
+            <i class="fas fa-cog"></i> Prompt Context
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+            <div style="text-align: center;">
+                <div style="font-size: 0.9rem; color: {TURQUOISE}; margin-bottom: 0.25rem; font-weight: 600;">
+                    <i class="fas fa-bullseye"></i> Goal
+                </div>
+                <div style="font-size: 0.9rem; color: #475569;">{goal.title()}</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 0.9rem; color: {TURQUOISE}; margin-bottom: 0.25rem; font-weight: 600;">
+                    <i class="fas fa-users"></i> Audience
+                </div>
+                <div style="font-size: 0.9rem; color: #475569;">{audience.title()}</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 0.9rem; color: {TURQUOISE}; margin-bottom: 0.25rem; font-weight: 600;">
+                    <i class="fas fa-robot"></i> Platform
+                </div>
+                <div style="font-size: 0.9rem; color: #475569;">{platform.title()}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 3rem;">
+        <a href="/wizard" role="button" style="margin-right: 1rem; background: {TURQUOISE}; border-color: {TURQUOISE};">
+            <i class="fas fa-hat-wizard"></i> Create Another Prompt
+        </a>
+        <a href="/" role="button" style="background: #64748b; border-color: #64748b;">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </div>
+</div>
+'''
+        
     except Exception as e:
         result_content = f'''
-        <div style="max-width: 800px; margin: 0 auto; text-align: center;">
-            <h1 style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Error</h1>
-            <p>{str(e)}</p>
-            <a href="/" role="button" style="margin-top: 2rem;">Start Over</a>
-        </div>
-        '''
+<div style="max-width: 800px; margin: 0 auto; text-align: center;">
+    <h1 style="color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Error</h1>
+    <p>{str(e)}</p>
+    <a href="/" role="button" style="margin-top: 2rem; background: {TURQUOISE}; border-color: {TURQUOISE};">Start Over</a>
+</div>
+'''
     
     return HTMLResponse(layout("Result", result_content))
 
